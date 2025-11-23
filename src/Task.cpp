@@ -132,8 +132,15 @@ void Task::executeWithState(tState newState) {
     if (statesEnabled) {
         currentState = newState;
     }
-    if (callback && enabled) {
-        callback();
+    
+    // Always execute for Event and Exit states, even if disabled
+    // Only check enabled flag for Setup and Loop states
+    if (callback) {
+        if (newState == tState::Event || newState == tState::Exit || newState == tState::Setup) {
+            callback();
+        } else if (enabled) {
+            callback();
+        }
     }
 }
 

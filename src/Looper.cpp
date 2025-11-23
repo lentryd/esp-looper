@@ -61,6 +61,19 @@ void Looper::removeTask(std::shared_ptr<Task> task) {
         return;
     }
     
+    // Call Exit state before removing
+    if (task->hasStates()) {
+        currentTask = task;
+        task->executeWithState(tState::Exit);
+        currentTask = nullptr;
+    }
+    
+    // Remove from taskMap
+    if (xSemaphoreTake(tasksMutex, portMAX_DELAY)) {
+        taskMap.erase(task->getId());
+        xSemaphoreGive(tasksMutex);
+    }
+    
     if (xSemaphoreTake(tasksMutex, portMAX_DELAY)) {
         tasks.erase(
             std::remove(tasks.begin(), tasks.end(), task),
