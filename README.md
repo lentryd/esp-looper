@@ -169,8 +169,101 @@ LP_THREAD_("consumer", {
 ✅ **LP_SEM** - FreeRTOS semaphores  
 ✅ **Named versions** - Use `_` suffix macros for custom IDs  
 ✅ **Auto-registration** - Define globally, start automatically  
+✅ **Task Control** - enable(), disable(), toggle() for dynamic control  
+✅ **Task Lookup** - Access tasks by ID: `Looper["id"]`  
+✅ **State Management** - Setup/Loop/Event/Exit states for all tasks  
+✅ **Event-Driven Tasks** - Tasks receive events sent to their ID  
 
 **Key Difference**: Everything runs as **real FreeRTOS tasks** for true parallelism across both CPU cores!
+
+## 🎯 Task Control & State Management
+
+ESP-Looper now supports the complete Original Looper task control API:
+
+### Task Control
+Control any task dynamically:
+```cpp
+LP_TIMER_("my_timer", 1000, []() {
+    Serial.println("Tick");
+});
+
+// Control the timer
+Looper["my_timer"]->disable();  // Stop execution
+Looper["my_timer"]->enable();   // Resume execution
+Looper["my_timer"]->toggle();   // Toggle on/off
+bool running = Looper["my_timer"]->isEnabled();
+```
+
+### Task Lookup
+Access tasks by ID:
+```cpp
+auto task = Looper["task_id"];        // Get any task
+auto timer = Looper.getTimer("id");   // Get timer specifically
+auto thread = Looper.getThread("id"); // Get thread specifically
+auto ticker = Looper.getTicker("id"); // Get ticker specifically
+```
+
+### State Management
+All tasks support Setup/Loop/Event/Exit states:
+```cpp
+LP_TIMER_("sensor", 100, []() {
+    switch (Looper.thisState()) {
+        case tState::Setup:
+            // Called once when task starts
+            pinMode(SENSOR_PIN, INPUT);
+            Serial.println("Sensor initialized");
+            break;
+            
+        case tState::Loop:
+            // Normal periodic execution
+            int value = analogRead(SENSOR_PIN);
+            Serial.println(value);
+            break;
+            
+        case tState::Event:
+            // When event is sent to "sensor" ID
+            Serial.println("Event received!");
+            void* data = Looper.eventData();
+            break;
+            
+        case tState::Exit:
+            // Before task is removed
+            Serial.println("Sensor shutting down");
+            break;
+    }
+});
+```
+
+### Event-Driven Threads
+Threads can be event-driven:
+```cpp
+LP_THREAD_("action", {
+    // Only execute when event is sent to "action"
+    if (Looper.thisState() != tState::Event)
+        return;
+    
+    int* value = (int*)Looper.eventData();
+    Serial.printf("Action triggered with value: %d\n", *value);
+    
+    LP_DELAY(500);
+    Serial.println("Action complete!");
+});
+
+// Send event to trigger the thread
+int data = 42;
+LP_SEND_EVENT("action", &data);
+```
+
+### State Query Methods
+```cpp
+Looper.thisState()     // Get current state
+Looper.thisSetup()     // Check if in Setup state
+Looper.thisLoop()      // Check if in Loop state
+Looper.thisEvent()     // Check if in Event state
+Looper.thisExit()      // Check if in Exit state
+Looper.eventData()     // Get event data pointer
+Looper.thisTaskName()  // Get current task name
+```
 
 ## API Reference
 
@@ -246,6 +339,8 @@ See `examples/` folder:
 - `communication` - Multiple producers/consumers
 - `auto_registration` - Global task auto-registration
 - `original_api` - Full Original Looper API demonstration
+- `task_control` - Task enable/disable/toggle with state management
+- `event_thread` - Event-driven threads and state callbacks
 
 ## Comparison with Original Looper
 
