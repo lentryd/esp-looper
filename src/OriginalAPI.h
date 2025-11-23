@@ -303,3 +303,4 @@ typedef SemaphoreHandle_t LP_SEM;
 #define LP_SEM_SIGNAL(sem) xSemaphoreGive(sem)
 #define LP_SEM_WAIT(sem) \
     LP_WAIT(xSemaphoreTake(sem, 0) == pdTRUE)
+

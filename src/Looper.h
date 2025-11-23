@@ -131,10 +131,14 @@ private:
 
 // ========== Auto-registration macros (like original Looper) ==========
 
+// Helper macros for stringification
+#define _LP_STRINGIFY(x) #x
+#define _LP_STRINGIFY_EXPAND(x) _LP_STRINGIFY(x)
+
 // Auto-registered timer with auto-generated name
 #define LP_TIMER(period, callback, ...) \
     static ESPLooper::AutoTimer _lp_timer_##__LINE__( \
-        "timer_" #__LINE__, period, callback, ##__VA_ARGS__)
+        "timer_" _LP_STRINGIFY_EXPAND(__LINE__), period, callback, ##__VA_ARGS__)
 
 // Auto-registered timer with custom name
 #define LP_TIMER_NAMED(name, period, callback, ...) \
@@ -144,13 +148,9 @@ private:
 // Auto-registered listener with auto-generated name
 #define LP_LISTENER(eventId, callback, ...) \
     static ESPLooper::AutoListener _lp_listener_##__LINE__( \
-        "listener_" #__LINE__, eventId, callback, ##__VA_ARGS__)
+        "listener_" _LP_STRINGIFY_EXPAND(__LINE__), eventId, callback, ##__VA_ARGS__)
 
 // Auto-registered listener with custom name
 #define LP_LISTENER_NAMED(name, eventId, callback, ...) \
     static ESPLooper::AutoListener _lp_listener_##name( \
         #name, eventId, callback, ##__VA_ARGS__)
-
-// Short event sending macro
-#define LP_SEND_EVENT(eventId, data, size) \
-    ESP_LOOPER.sendEvent(eventId, data, size, true)
