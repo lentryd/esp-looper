@@ -9,7 +9,9 @@ Task::Task(const char* name, TaskCallback callback, uint32_t stackSize,
            UBaseType_t priority, BaseType_t coreId)
     : taskName(name), callback(callback), taskHandle(nullptr), 
       state(TaskState::Created), stackSize(stackSize), 
-      priority(priority), coreId(coreId), shouldRun(true) {
+      priority(priority), coreId(coreId), shouldRun(true),
+      taskId(0), taskIdString(nullptr), enabled(true), 
+      eventsEnabled(false), statesEnabled(false), currentState(tState::Loop) {
 }
 
 Task::~Task() {
@@ -84,6 +86,64 @@ uint32_t Task::getStackHighWaterMark() const {
     return 0;
 }
 
+// ===== Original Looper Task Control =====
+
+void Task::enable() {
+    enabled = true;
+}
+
+void Task::disable() {
+    enabled = false;
+}
+
+bool Task::isEnabled() const {
+    return enabled;
+}
+
+void Task::toggle() {
+    enabled = !enabled;
+}
+
+void Task::enableEvents() {
+    eventsEnabled = true;
+}
+
+void Task::disableEvents() {
+    eventsEnabled = false;
+}
+
+bool Task::hasEvents() const {
+    return eventsEnabled;
+}
+
+void Task::enableStates() {
+    statesEnabled = true;
+}
+
+void Task::disableStates() {
+    statesEnabled = false;
+}
+
+bool Task::hasStates() const {
+    return statesEnabled;
+}
+
+void Task::executeWithState(tState newState) {
+    if (statesEnabled) {
+        currentState = newState;
+    }
+    
+    // Always execute for Event and Exit states, even if disabled
+    // Only check enabled flag for Setup and Loop states
+    if (callback) {
+        if (newState == tState::Event || newState == tState::Exit || newState == tState::Setup) {
+            callback();
+        } else if (enabled) {
+            callback();
+        }
+    }
+}
+
 void Task::taskWrapper(void* parameter) {
     Task* task = static_cast<Task*>(parameter);
     if (task) {
@@ -130,8 +190,12 @@ void TimerTask::run() {
     const TickType_t period = pdMS_TO_TICKS(periodMs);
     
     while (shouldRun) {
-        if (callback) {
-            callback();
+        if (enabled) {
+            if (statesEnabled) {
+                executeWithState(tState::Loop);
+            } else if (callback) {
+                callback();
+            }
         }
         vTaskDelayUntil(&lastWakeTime, period);
     }
