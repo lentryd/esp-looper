@@ -1,0 +1,17 @@
+# CodeQL
+_codeql_detected_source_root
+
+# IDE
+.vscode/
+.idea/
+
+# Build artifacts
+*.o
+*.a
+*.elf
+*.bin
+
+# Temporary files
+*.tmp
+*.swp
+*~
