@@ -99,7 +99,8 @@ public:
         threadHandle = task;  // Store handle for access
     }
     
-    std::shared_ptr<ThreadTask> threadHandle;  // Public access to thread handle
+    // Public access to thread handle - required by LP_THREAD macros to access thread state
+    std::shared_ptr<ThreadTask> threadHandle;
     
 private:
     const char* name;
@@ -190,6 +191,7 @@ private:
 #define LP_THREAD(body, ...) \
     namespace { \
         struct _LP_CONCAT(_lp_thread_wrapper_, __LINE__) { \
+            /* Static member to store thread handle - each instance in anonymous namespace is unique per TU */ \
             static inline std::shared_ptr<ESPLooper::ThreadTask> handle; \
             _LP_CONCAT(_lp_thread_wrapper_, __LINE__)() { \
                 static ESPLooper::AutoThread reg( \
@@ -245,19 +247,23 @@ private:
 
 // Helper function template for safe event data size calculation
 namespace _lp_event_helpers {
+    // Template for typed pointers - returns sizeof(*ptr) if non-null
     template<typename T>
     inline size_t safe_sizeof(T* ptr) {
         return ptr ? sizeof(*ptr) : 0;
     }
     
+    // Overload for void* - size information is lost, return 0
     inline size_t safe_sizeof(void* ptr) {
         return 0;
     }
     
+    // Overload for const void* - size information is lost, return 0
     inline size_t safe_sizeof(const void* ptr) {
         return 0;
     }
     
+    // Overload for nullptr_t - always return 0 for null
     inline size_t safe_sizeof(std::nullptr_t) {
         return 0;
     }
@@ -265,11 +271,11 @@ namespace _lp_event_helpers {
 
 // Events - handle null data properly
 #define LP_SEND_EVENT(id, data) \
-    ESP_LOOPER.sendEvent(EVENT_ID(id), (void*)(data), \
+    ESP_LOOPER.sendEvent(EVENT_ID(id), static_cast<void*>(data), \
         _lp_event_helpers::safe_sizeof(data), true)
 
 #define LP_PUSH_EVENT(id, data) \
-    ESP_LOOPER.sendEvent(EVENT_ID(id), (void*)(data), \
+    ESP_LOOPER.sendEvent(EVENT_ID(id), static_cast<void*>(data), \
         _lp_event_helpers::safe_sizeof(data), true)
 
 #define LP_BROADCAST EVENT_ID("")
