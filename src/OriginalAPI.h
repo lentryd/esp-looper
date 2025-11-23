@@ -36,7 +36,7 @@ public:
                uint32_t stackSize = 8192,
                UBaseType_t priority = 1,
                BaseType_t coreId = tskNO_AFFINITY)
-        : Task(name, callback, stackSize, priority, coreId), _case(0), _eventFlag(false) {
+        : Task(name, callback, stackSize, priority, coreId), _case(0), _delayUntil(0), _eventFlag(false) {
         start();
     }
     
@@ -113,10 +113,14 @@ private:
     static ESPLooper::AutoTicker _lp_ticker_##id( \
         #id, callback, ##__VA_ARGS__)
 
-// ===== TIMER - Periodic task (reuse existing) =====
+// ===== TIMER - Periodic task (already defined in Looper.h) =====
+// LP_TIMER and LP_TIMER_NAMED are already available from Looper.h
+// For compatibility, provide LP_TIMER_ as alias
+#ifndef LP_TIMER_
 #define LP_TIMER_(id, ms, callback, ...) \
     static ESPLooper::AutoTimer _lp_timer_##id( \
         #id, ms, callback, ##__VA_ARGS__)
+#endif
 
 // ===== THREAD - Thread with state machine support =====
 
