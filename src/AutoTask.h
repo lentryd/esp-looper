@@ -25,9 +25,7 @@ public:
     // Initialize all registered tasks
     static void initAll() {
         for (auto* task : getRegistry()) {
-            if (task) {
-                task->init();
-            }
+            task->init();
         }
     }
 };
