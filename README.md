@@ -79,6 +79,99 @@ void setup() {
 ✅ **Familiar Pattern** - Same as original Looper library  
 ✅ **Mix & Match** - Use auto-registration with dynamic tasks  
 
+## 🎯 Original Looper API
+
+ESP-Looper implements the **full original Looper API**, but with real FreeRTOS multithreading instead of cooperative scheduling:
+
+### LP_TICKER - Continuous Task
+Runs continuously in a loop:
+```cpp
+LP_TICKER([]() {
+    // Called continuously (with taskYIELD)
+});
+
+LP_TICKER_("my_ticker", []() {
+    // Named ticker
+});
+```
+
+### LP_TIMER - Periodic Task
+Executes at regular intervals:
+```cpp
+LP_TIMER(1000, []() {
+    // Called every 1000ms (auto-generated name)
+});
+
+LP_TIMER_("timer_1sec", 1000, []() {
+    // Called every 1000ms (named)
+});
+```
+
+### LP_THREAD - Async Thread with State Machine
+True async programming with Duff's Device pattern:
+```cpp
+LP_THREAD({
+    while (true) {
+        Serial.println("Hello");
+        LP_DELAY(1000);  // Non-blocking delay!
+        
+        LP_WAIT(condition);  // Wait for condition
+    }
+});
+
+LP_THREAD_("named_thread", {
+    // Thread with custom name
+});
+```
+
+### Thread Control Macros
+- **`LP_DELAY(ms)`** - Non-blocking delay using state machine
+- **`LP_WAIT(cond)`** - Wait for condition to be true
+- **`LP_WAIT_EVENT()`** - Wait for event to arrive
+- **`LP_EXIT()`** - Exit thread and resume at this point next time
+- **`LP_RESTART()`** - Restart thread from beginning
+
+### Events
+```cpp
+LP_SEND_EVENT("event", &data);
+LP_PUSH_EVENT("event", &data);
+
+LP_LISTENER_("event", [](const ESPLooper::Event& evt) {
+    // Handle event
+});
+```
+
+### Semaphores (FreeRTOS)
+```cpp
+LP_SEM mySem = LP_SEM_CREATE();
+
+LP_THREAD_("producer", {
+    while (true) {
+        // Produce data
+        LP_SEM_SIGNAL(mySem);
+    }
+});
+
+LP_THREAD_("consumer", {
+    while (true) {
+        LP_SEM_WAIT(mySem);
+        // Consume data
+    }
+});
+```
+
+### All Original Features Supported
+✅ **LP_TICKER** - Continuous tasks  
+✅ **LP_TIMER** - Periodic tasks  
+✅ **LP_THREAD** - Threads with Duff's Device state machine  
+✅ **LP_LISTENER** - Event listeners  
+✅ **LP_DELAY, LP_WAIT, LP_EXIT, LP_RESTART** - Thread control  
+✅ **LP_SEM** - FreeRTOS semaphores  
+✅ **Named versions** - Use `_` suffix macros for custom IDs  
+✅ **Auto-registration** - Define globally, start automatically  
+
+**Key Difference**: Everything runs as **real FreeRTOS tasks** for true parallelism across both CPU cores!
+
 ## API Reference
 
 ### Initialize Framework
@@ -152,6 +245,7 @@ See `examples/` folder:
 - `multicore` - Multi-core communication
 - `communication` - Multiple producers/consumers
 - `auto_registration` - Global task auto-registration
+- `original_api` - Full Original Looper API demonstration
 
 ## Comparison with Original Looper
 

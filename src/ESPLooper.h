@@ -9,6 +9,7 @@
 #include "Task.h"
 #include "Looper.h"
 #include "AutoTask.h"
+#include "OriginalAPI.h"
 
 // Usage example with auto-registration:
 // 
