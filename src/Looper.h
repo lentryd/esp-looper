@@ -3,8 +3,13 @@
 #include "Task.h"
 #include <vector>
 #include <memory>
+#include <map>
 
 namespace ESPLooper {
+
+// Forward declarations
+class TickerTask;
+class ThreadTask;
 
 class Looper {
 public:
@@ -39,6 +44,10 @@ public:
         UBaseType_t priority = 1
     );
     
+    // Add ticker/thread with ID registration (for auto-registration)
+    void addTicker(const char* name, std::shared_ptr<TickerTask> task);
+    void addThread(const char* name, std::shared_ptr<ThreadTask> task);
+    
     // Event system access
     EventBus& events() { return EventBus::getInstance(); }
     
@@ -49,6 +58,35 @@ public:
     // Task management
     std::shared_ptr<Task> getTask(const char* name);
     size_t getTaskCount() const;
+    
+    // Task lookup by ID (Original Looper API)
+    std::shared_ptr<Task> operator[](const char* id);
+    std::shared_ptr<Task> getTask(uint32_t id);
+    
+    std::shared_ptr<TimerTask> getTimer(const char* id);
+    std::shared_ptr<TimerTask> getTimer(uint32_t id);
+    
+    std::shared_ptr<ListenerTask> getListener(const char* id);
+    std::shared_ptr<ListenerTask> getListener(uint32_t id);
+    
+    std::shared_ptr<TickerTask> getTicker(const char* id);
+    std::shared_ptr<TickerTask> getTicker(uint32_t id);
+    
+    std::shared_ptr<ThreadTask> getThread(const char* id);
+    std::shared_ptr<ThreadTask> getThread(uint32_t id);
+    
+    // Current task state info (Original Looper API)
+    tState thisState() const;
+    bool thisSetup() const;
+    bool thisLoop() const;
+    bool thisEvent() const;
+    bool thisExit() const;
+    
+    void* eventData() const;
+    const char* thisTaskName() const;
+    
+    // Execute task with event
+    void executeTaskWithEvent(std::shared_ptr<Task> task, const Event& event);
     
     // Statistics
     void printStats() const;
@@ -62,6 +100,14 @@ private:
     TaskHandle_t eventDispatcherHandle;
     bool initialized;
     
+    // Map for fast ID lookup
+    std::map<uint32_t, std::shared_ptr<Task>> taskMap;
+    
+    // Current execution context
+    tState currentState;
+    void* currentEventData;
+    std::shared_ptr<Task> currentTask;
+    
     static void eventDispatcherTask(void* parameter);
 };
 
@@ -69,6 +115,7 @@ private:
 
 // Global convenience macros
 #define ESP_LOOPER ESPLooper::Looper::getInstance()
+#define Looper ESPLooper::Looper::getInstance()
 
 #define ESP_TIMER(name, period, callback, ...) \
     ESP_LOOPER.addTimer(name, callback, period, ##__VA_ARGS__)

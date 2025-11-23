@@ -3,6 +3,10 @@
 
 namespace ESPLooper {
 
+// Forward declarations to avoid circular dependency
+class Task;
+class Looper;
+
 // ===== Event Implementation =====
 
 Event::Event(uint32_t id, void* data, size_t size, bool copyData)
@@ -129,7 +133,17 @@ void EventBus::processEvents() {
 }
 
 void EventBus::dispatchEvent(Event& event) {
+    // Forward declare getInstance to avoid including Looper.h
+    extern Looper& getLooperInstance();
+    
     if (xSemaphoreTake(listenersMutex, portMAX_DELAY)) {
+        // First, send to specific task if event ID matches a task
+        auto& looper = getLooperInstance();
+        auto task = looper.getTask(event.id);
+        if (task && task->hasEvents()) {
+            looper.executeTaskWithEvent(task, event);
+        }
+        
         // Call specific listeners
         auto it = listeners.find(event.id);
         if (it != listeners.end()) {
@@ -161,6 +175,11 @@ size_t EventBus::getListenerCount(uint32_t eventId) const {
         xSemaphoreGive(listenersMutex);
     }
     return count;
+}
+
+// Helper function to get Looper instance without including Looper.h
+Looper& getLooperInstance() {
+    return Looper::getInstance();
 }
 
 } // namespace ESPLooper

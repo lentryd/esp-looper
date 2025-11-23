@@ -26,10 +26,18 @@ public:
         start();
     }
     
+    bool isTicker() const override { return true; }
+    
 protected:
     void run() override {
         while (shouldRun) {
-            if (callback) callback();
+            if (enabled) {
+                if (statesEnabled) {
+                    executeWithState(tState::Loop);
+                } else if (callback) {
+                    callback();
+                }
+            }
             taskYIELD();  // Let other tasks run
         }
     }
@@ -46,6 +54,8 @@ public:
         start();
     }
     
+    bool isThread() const override { return true; }
+    
     // Thread state for Duff's Device pattern
     uint16_t _case;
     TickType_t _delayUntil;
@@ -54,7 +64,13 @@ public:
 protected:
     void run() override {
         while (shouldRun) {
-            if (callback) callback();
+            if (enabled) {
+                if (statesEnabled) {
+                    executeWithState(tState::Loop);
+                } else if (callback) {
+                    callback();
+                }
+            }
             taskYIELD();
         }
     }
@@ -72,7 +88,7 @@ public:
     
     void init() override {
         auto task = std::make_shared<TickerTask>(name, callback, stackSize, priority, coreId);
-        Looper::getInstance().addTask(task);
+        Looper::getInstance().addTicker(name, task);
     }
     
 private:
@@ -95,7 +111,7 @@ public:
     
     void init() override {
         auto task = std::make_shared<ThreadTask>(name, callback, stackSize, priority, coreId);
-        Looper::getInstance().addTask(task);
+        Looper::getInstance().addThread(name, task);
         threadHandle = task;  // Store handle for access
     }
     
