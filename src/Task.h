@@ -5,6 +5,14 @@
 #include <string>
 #include "Event.h"
 
+// Task execution state (Setup/Loop/Event/Exit) - Global scope for easy access
+enum class tState {
+    Setup,   // Called once when task starts
+    Loop,    // Normal execution
+    Event,   // When event is sent to this task's ID
+    Exit     // Before task is removed
+};
+
 namespace ESPLooper {
 
 enum class TaskState {
@@ -12,14 +20,6 @@ enum class TaskState {
     Running,
     Paused,
     Stopped
-};
-
-// Task execution state (Setup/Loop/Event/Exit)
-enum class tState {
-    Setup,   // Called once when task starts
-    Loop,    // Normal execution
-    Event,   // When event is sent to this task's ID
-    Exit     // Before task is removed
 };
 
 class Task {
@@ -92,6 +92,7 @@ protected:
     bool eventsEnabled;
     bool statesEnabled;
     tState currentState;
+    bool setupCalled;          // Track if Setup has been called
     
     static void taskWrapper(void* parameter);
     virtual void run();

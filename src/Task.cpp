@@ -129,14 +129,27 @@ bool Task::hasStates() const {
 }
 
 void Task::executeWithState(tState newState) {
-    if (statesEnabled) {
-        currentState = newState;
+    if (!statesEnabled) {
+        if (callback) callback();
+        return;
     }
     
-    // Always execute for Event and Exit states, even if disabled
-    // Only check enabled flag for Setup and Loop states
+    // For Event state, save and restore after callback
+    if (newState == tState::Event) {
+        tState prevState = currentState;
+        currentState = newState;
+        if (callback) callback();
+        currentState = prevState;
+        return;
+    }
+    
+    // For other states, change and keep the state
+    currentState = newState;
+    
+    // Always execute for Exit and Setup states, even if disabled
+    // Only check enabled flag for Loop state
     if (callback) {
-        if (newState == tState::Event || newState == tState::Exit || newState == tState::Setup) {
+        if (newState == tState::Exit || newState == tState::Setup) {
             callback();
         } else if (enabled) {
             callback();
