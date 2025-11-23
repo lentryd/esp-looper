@@ -1,4 +1,5 @@
 #include "Looper.h"
+#include "AutoTask.h"
 
 namespace ESPLooper {
 
@@ -35,6 +36,9 @@ void Looper::begin(UBaseType_t dispatcherPriority, BaseType_t dispatcherCore) {
                                this, dispatcherPriority, &eventDispatcherHandle,
                                dispatcherCore);
     }
+    
+    // Initialize all auto-registered tasks
+    AutoTask::initAll();
     
     initialized = true;
 }

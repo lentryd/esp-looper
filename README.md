@@ -39,6 +39,46 @@ void setup() {
 }
 ```
 
+## 🎯 Auto-Registration (Like Original Looper)
+
+ESP-Looper supports automatic task registration, similar to the original Looper library. Define tasks globally without calling registration functions:
+
+```cpp
+#include <ESPLooper.h>
+
+// Global auto-registered timer - runs automatically!
+LP_TIMER(1000, []() {
+    int data = analogRead(34);
+    LP_SEND_EVENT(EVENT_ID("sensor"), &data, sizeof(data));
+});
+
+// Global auto-registered listener
+LP_LISTENER(EVENT_ID("sensor"), [](const ESPLooper::Event& evt) {
+    Serial.printf("Data: %d\n", *(int*)evt.data);
+});
+
+void setup() {
+    ESP_LOOPER.begin(); // Automatically initializes all global tasks
+}
+```
+
+### Auto-Registration Macros
+
+| Macro | Description |
+|-------|-------------|
+| `LP_TIMER(period, callback, ...)` | Auto-registered timer with auto-generated name |
+| `LP_TIMER_NAMED(name, period, callback, ...)` | Auto-registered timer with custom name |
+| `LP_LISTENER(eventId, callback, ...)` | Auto-registered listener with auto-generated name |
+| `LP_LISTENER_NAMED(name, eventId, callback, ...)` | Auto-registered listener with custom name |
+| `LP_SEND_EVENT(eventId, data, size)` | Short event sending macro |
+
+### Benefits
+
+✅ **Cleaner Code** - Define tasks where they logically belong  
+✅ **No Setup Clutter** - Keep setup() minimal  
+✅ **Familiar Pattern** - Same as original Looper library  
+✅ **Mix & Match** - Use auto-registration with dynamic tasks  
+
 ## API Reference
 
 ### Initialize Framework
@@ -111,6 +151,7 @@ See `examples/` folder:
 - `basic` - Simple timer and listener
 - `multicore` - Multi-core communication
 - `communication` - Multiple producers/consumers
+- `auto_registration` - Global task auto-registration
 
 ## Comparison with Original Looper
 
