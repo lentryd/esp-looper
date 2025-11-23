@@ -36,7 +36,7 @@ public:
                uint32_t stackSize = 8192,
                UBaseType_t priority = 1,
                BaseType_t coreId = tskNO_AFFINITY)
-        : Task(name, callback, stackSize, priority, coreId), _case(0) {
+        : Task(name, callback, stackSize, priority, coreId), _case(0), _eventFlag(false) {
         start();
     }
     
@@ -120,26 +120,14 @@ private:
 
 // ===== THREAD - Thread with state machine support =====
 
-// Helper to get thread handle - must be unique per line/id
-#define _LP_THREAD_HANDLE_NAME_INNER(line) _lp_thread_handle_##line
-#define _LP_THREAD_HANDLE_NAME(line) _LP_THREAD_HANDLE_NAME_INNER(line)
-#define _LP_THREAD_HANDLE _LP_THREAD_HANDLE_NAME(__LINE__)
-
-#define _LP_THREAD_CASE (_LP_THREAD_HANDLE->_case)
-
-// Thread state machine control
+// Thread state machine control macros
 #define LP_THREAD_BEGIN() \
-    switch (_LP_THREAD_CASE) { \
+    switch (_LP_THREAD_HANDLE->_case) { \
         case 0:;
 
 #define LP_THREAD_END() \
     } \
-    _LP_THREAD_CASE = 0;
-
-#define _LP_THREAD_INNER(body) \
-    LP_THREAD_BEGIN(); \
-    body \
-    LP_THREAD_END();
+    _LP_THREAD_HANDLE->_case = 0;
 
 // Counter for unique case labels
 #ifndef __COUNTER__
@@ -149,20 +137,20 @@ private:
 // Thread control macros
 #define LP_RESTART() \
     do { \
-        _LP_THREAD_CASE = 0; \
+        _LP_THREAD_HANDLE->_case = 0; \
         return; \
     } while (0)
 
 #define LP_EXIT() \
     do { \
-        _LP_THREAD_CASE = __COUNTER__ + 1; \
+        _LP_THREAD_HANDLE->_case = __COUNTER__ + 1; \
         return; \
         case __COUNTER__:; \
     } while (0)
 
 #define LP_WAIT(cond) \
     do { \
-        _LP_THREAD_CASE = __COUNTER__ + 1; \
+        _LP_THREAD_HANDLE->_case = __COUNTER__ + 1; \
         case __COUNTER__: \
             if (!(cond)) return; \
     } while (0)
@@ -175,7 +163,7 @@ private:
 
 #define LP_WAIT_EVENT() \
     do { \
-        _LP_THREAD_CASE = __COUNTER__ + 1; \
+        _LP_THREAD_HANDLE->_case = __COUNTER__ + 1; \
         case __COUNTER__: \
             if (!_LP_THREAD_HANDLE->_eventFlag) return; \
             _LP_THREAD_HANDLE->_eventFlag = false; \
@@ -183,56 +171,48 @@ private:
 
 // Thread macro with auto-generated name
 #define LP_THREAD(body, ...) \
-    static std::shared_ptr<ESPLooper::ThreadTask> _LP_THREAD_HANDLE; \
-    static ESPLooper::AutoThread _lp_thread_obj_##__LINE__( \
-        "thread_" #__LINE__, \
-        []() { \
-            _LP_THREAD_INNER(body) \
-        }, \
-        ##__VA_ARGS__); \
     namespace { \
-        struct _lp_thread_init_##__LINE__ { \
-            _lp_thread_init_##__LINE__() { \
-                static bool initialized = false; \
-                if (!initialized) { \
-                    auto& looper = ESPLooper::Looper::getInstance(); \
-                    auto getHandle = [&]() { \
-                        vTaskDelay(pdMS_TO_TICKS(50)); \
-                        _LP_THREAD_HANDLE = std::static_pointer_cast<ESPLooper::ThreadTask>( \
-                            looper.getTask("thread_" #__LINE__)); \
-                    }; \
-                    getHandle(); \
-                    initialized = true; \
-                } \
-            } \
-        } _lp_thread_init_instance_##__LINE__; \
+        struct _lp_thread_wrapper_##__LINE__ { \
+            std::shared_ptr<ESPLooper::ThreadTask> handle; \
+            ESPLooper::AutoThread thread; \
+            \
+            _lp_thread_wrapper_##__LINE__() \
+                : thread("thread_" #__LINE__, \
+                    [this]() { \
+                        if (!handle) { \
+                            handle = std::static_pointer_cast<ESPLooper::ThreadTask>( \
+                                ESPLooper::Looper::getInstance().getTask("thread_" #__LINE__)); \
+                        } \
+                        auto _LP_THREAD_HANDLE = handle; \
+                        LP_THREAD_BEGIN(); \
+                        body \
+                        LP_THREAD_END(); \
+                    }, \
+                    ##__VA_ARGS__) {} \
+        } _lp_thread_instance_##__LINE__; \
     }
 
 // Thread macro with custom name
 #define LP_THREAD_(id, body, ...) \
-    static std::shared_ptr<ESPLooper::ThreadTask> _lp_thread_handle_##id; \
-    static ESPLooper::AutoThread _lp_thread_obj_##id( \
-        #id, \
-        []() { \
-            _LP_THREAD_INNER(body) \
-        }, \
-        ##__VA_ARGS__); \
     namespace { \
-        struct _lp_thread_init_##id { \
-            _lp_thread_init_##id() { \
-                static bool initialized = false; \
-                if (!initialized) { \
-                    auto& looper = ESPLooper::Looper::getInstance(); \
-                    auto getHandle = [&]() { \
-                        vTaskDelay(pdMS_TO_TICKS(50)); \
-                        _lp_thread_handle_##id = std::static_pointer_cast<ESPLooper::ThreadTask>( \
-                            looper.getTask(#id)); \
-                    }; \
-                    getHandle(); \
-                    initialized = true; \
-                } \
-            } \
-        } _lp_thread_init_instance_##id; \
+        struct _lp_thread_wrapper_##id { \
+            std::shared_ptr<ESPLooper::ThreadTask> handle; \
+            ESPLooper::AutoThread thread; \
+            \
+            _lp_thread_wrapper_##id() \
+                : thread(#id, \
+                    [this]() { \
+                        if (!handle) { \
+                            handle = std::static_pointer_cast<ESPLooper::ThreadTask>( \
+                                ESPLooper::Looper::getInstance().getTask(#id)); \
+                        } \
+                        auto _LP_THREAD_HANDLE = handle; \
+                        LP_THREAD_BEGIN(); \
+                        body \
+                        LP_THREAD_END(); \
+                    }, \
+                    ##__VA_ARGS__) {} \
+        } _lp_thread_instance_##id; \
     }
 
 // ===== LISTENER - Event listener (reuse existing) =====
