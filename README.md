@@ -98,8 +98,12 @@ LP_TICKER_("my_ticker", []() {
 ### LP_TIMER - Periodic Task
 Executes at regular intervals:
 ```cpp
+LP_TIMER(1000, []() {
+    // Called every 1000ms (auto-generated name)
+});
+
 LP_TIMER_("timer_1sec", 1000, []() {
-    // Called every 1000ms
+    // Called every 1000ms (named)
 });
 ```
 

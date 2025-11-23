@@ -133,11 +133,6 @@ private:
     } \
     _LP_THREAD_HANDLE->_case = 0;
 
-// Counter for unique case labels
-#ifndef __COUNTER__
-#define __COUNTER__ __LINE__
-#endif
-
 // Thread control macros
 #define LP_RESTART() \
     do { \
@@ -147,16 +142,16 @@ private:
 
 #define LP_EXIT() \
     do { \
-        _LP_THREAD_HANDLE->_case = __COUNTER__ + 1; \
+        _LP_THREAD_HANDLE->_case = __LINE__; \
         return; \
-        case __COUNTER__:; \
+        case __LINE__:; \
     } while (0)
 
 #define LP_WAIT(cond) \
     do { \
-        _LP_THREAD_HANDLE->_case = __COUNTER__ + 1; \
-        case __COUNTER__: \
-            if (!(cond)) return; \
+        _LP_THREAD_HANDLE->_case = __LINE__; \
+        case __LINE__: \
+        if (!(cond)) return; \
     } while (0)
 
 #define LP_DELAY(ms) \
@@ -167,10 +162,10 @@ private:
 
 #define LP_WAIT_EVENT() \
     do { \
-        _LP_THREAD_HANDLE->_case = __COUNTER__ + 1; \
-        case __COUNTER__: \
-            if (!_LP_THREAD_HANDLE->_eventFlag) return; \
-            _LP_THREAD_HANDLE->_eventFlag = false; \
+        _LP_THREAD_HANDLE->_case = __LINE__; \
+        case __LINE__: \
+        if (!_LP_THREAD_HANDLE->_eventFlag) return; \
+        _LP_THREAD_HANDLE->_eventFlag = false; \
     } while (0)
 
 // Thread macro with auto-generated name
@@ -221,8 +216,8 @@ private:
 
 // ===== LISTENER - Event listener (reuse existing) =====
 #define LP_LISTENER_(id, callback, ...) \
-    static ESPLooper::AutoListener _lp_listener_##__LINE__( \
-        "listener_" #__LINE__, EVENT_ID(id), callback, ##__VA_ARGS__)
+    static ESPLooper::AutoListener _lp_listener_##id( \
+        #id, EVENT_ID(id), callback, ##__VA_ARGS__)
 
 // ===== EVENTS =====
 #define LP_SEND_EVENT(id, data) \
