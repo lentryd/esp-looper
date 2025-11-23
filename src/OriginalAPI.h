@@ -7,6 +7,12 @@
 #include "AutoTask.h"
 #include <freertos/semphr.h>
 
+// Helper macros for stringification and concatenation
+#define _LP_STRINGIFY(x) #x
+#define _LP_STRINGIFY_EXPAND(x) _LP_STRINGIFY(x)
+#define _LP_CONCAT_IMPL(a, b) a##b
+#define _LP_CONCAT(a, b) _LP_CONCAT_IMPL(a, b)
+
 namespace ESPLooper {
 
 // ===== Ticker Task - Continuously running task =====
@@ -90,7 +96,10 @@ public:
     void init() override {
         auto task = std::make_shared<ThreadTask>(name, callback, stackSize, priority, coreId);
         Looper::getInstance().addTask(task);
+        threadHandle = task;  // Store handle for access
     }
+    
+    std::shared_ptr<ThreadTask> threadHandle;  // Public access to thread handle
     
 private:
     const char* name;
@@ -105,21 +114,24 @@ private:
 // ========== Original Looper Macros ==========
 
 // ===== TICKER - Continuously running task =====
-#define LP_TICKER(callback, ...) \
-    static ESPLooper::AutoTicker _lp_ticker_##__LINE__( \
-        "ticker_" #__LINE__, callback, ##__VA_ARGS__)
 
+// Unnamed ticker - uses __LINE__ for unique variable name
+#define LP_TICKER(callback, ...) \
+    static ESPLooper::AutoTicker _LP_CONCAT(_lp_ticker_, __LINE__)( \
+        "ticker_" _LP_STRINGIFY(__LINE__), callback, ##__VA_ARGS__)
+
+// Named ticker - uses string ID directly
 #define LP_TICKER_(id, callback, ...) \
-    static ESPLooper::AutoTicker _lp_ticker_##id( \
-        #id, callback, ##__VA_ARGS__)
+    static ESPLooper::AutoTicker _LP_CONCAT(_lp_ticker_named_, __LINE__)( \
+        id, callback, ##__VA_ARGS__)
 
 // ===== TIMER - Periodic task (already defined in Looper.h) =====
-// LP_TIMER and LP_TIMER_NAMED are already available from Looper.h
-// For compatibility, provide LP_TIMER_ as alias
+// LP_TIMER is already available from Looper.h
+// For compatibility, provide LP_TIMER_ (named version)
 #ifndef LP_TIMER_
 #define LP_TIMER_(id, ms, callback, ...) \
-    static ESPLooper::AutoTimer _lp_timer_##id( \
-        #id, ms, callback, ##__VA_ARGS__)
+    static ESPLooper::AutoTimer _LP_CONCAT(_lp_timer_named_, __LINE__)( \
+        id, ms, callback, true, ##__VA_ARGS__)
 #endif
 
 // ===== THREAD - Thread with state machine support =====
@@ -168,63 +180,77 @@ private:
         _LP_THREAD_HANDLE->_eventFlag = false; \
     } while (0)
 
-// Thread macro with auto-generated name
+// Helper macro for thread body
+#define _LP_THREAD_INNER(body) \
+    LP_THREAD_BEGIN(); \
+    body \
+    LP_THREAD_END();
+
+// Unnamed thread
 #define LP_THREAD(body, ...) \
     namespace { \
-        struct _lp_thread_wrapper_##__LINE__ { \
-            std::shared_ptr<ESPLooper::ThreadTask> handle; \
-            ESPLooper::AutoThread thread; \
-            \
-            _lp_thread_wrapper_##__LINE__() \
-                : thread("thread_" #__LINE__, \
-                    [this]() { \
-                        if (!handle) { \
-                            handle = std::static_pointer_cast<ESPLooper::ThreadTask>( \
-                                ESPLooper::Looper::getInstance().getTask("thread_" #__LINE__)); \
+        struct _LP_CONCAT(_lp_thread_wrapper_, __LINE__) { \
+            static inline std::shared_ptr<ESPLooper::ThreadTask> handle; \
+            _LP_CONCAT(_lp_thread_wrapper_, __LINE__)() { \
+                static ESPLooper::AutoThread reg( \
+                    "thread_" _LP_STRINGIFY(__LINE__), \
+                    []() { \
+                        auto _lp_thread_handle = _LP_CONCAT(_lp_thread_wrapper_, __LINE__)::handle; \
+                        if (!_lp_thread_handle) { \
+                            _lp_thread_handle = std::static_pointer_cast<ESPLooper::ThreadTask>( \
+                                ESP_LOOPER.getTask("thread_" _LP_STRINGIFY(__LINE__))); \
+                            _LP_CONCAT(_lp_thread_wrapper_, __LINE__)::handle = _lp_thread_handle; \
                         } \
-                        auto _LP_THREAD_HANDLE = handle; \
-                        LP_THREAD_BEGIN(); \
-                        body \
-                        LP_THREAD_END(); \
+                        auto _LP_THREAD_HANDLE = _lp_thread_handle; \
+                        _LP_THREAD_INNER(body) \
                     }, \
-                    ##__VA_ARGS__) {} \
-        } _lp_thread_instance_##__LINE__; \
+                    ##__VA_ARGS__); \
+                _LP_CONCAT(_lp_thread_wrapper_, __LINE__)::handle = reg.threadHandle; \
+            } \
+        } _LP_CONCAT(_lp_thread_instance_, __LINE__); \
     }
 
-// Thread macro with custom name
+// Named thread
 #define LP_THREAD_(id, body, ...) \
     namespace { \
-        struct _lp_thread_wrapper_##id { \
-            std::shared_ptr<ESPLooper::ThreadTask> handle; \
-            ESPLooper::AutoThread thread; \
-            \
-            _lp_thread_wrapper_##id() \
-                : thread(#id, \
-                    [this]() { \
-                        if (!handle) { \
-                            handle = std::static_pointer_cast<ESPLooper::ThreadTask>( \
-                                ESPLooper::Looper::getInstance().getTask(#id)); \
+        struct _LP_CONCAT(_lp_thread_wrapper_named_, __LINE__) { \
+            static inline std::shared_ptr<ESPLooper::ThreadTask> handle; \
+            _LP_CONCAT(_lp_thread_wrapper_named_, __LINE__)() { \
+                static ESPLooper::AutoThread reg( \
+                    id, \
+                    []() { \
+                        auto _lp_thread_handle = _LP_CONCAT(_lp_thread_wrapper_named_, __LINE__)::handle; \
+                        if (!_lp_thread_handle) { \
+                            _lp_thread_handle = std::static_pointer_cast<ESPLooper::ThreadTask>( \
+                                ESP_LOOPER.getTask(id)); \
+                            _LP_CONCAT(_lp_thread_wrapper_named_, __LINE__)::handle = _lp_thread_handle; \
                         } \
-                        auto _LP_THREAD_HANDLE = handle; \
-                        LP_THREAD_BEGIN(); \
-                        body \
-                        LP_THREAD_END(); \
+                        auto _LP_THREAD_HANDLE = _lp_thread_handle; \
+                        _LP_THREAD_INNER(body) \
                     }, \
-                    ##__VA_ARGS__) {} \
-        } _lp_thread_instance_##id; \
+                    ##__VA_ARGS__); \
+                _LP_CONCAT(_lp_thread_wrapper_named_, __LINE__)::handle = reg.threadHandle; \
+            } \
+        } _LP_CONCAT(_lp_thread_instance_named_, __LINE__); \
     }
 
 // ===== LISTENER - Event listener (reuse existing) =====
+
+// Named listener only (listeners always need an event ID)
 #define LP_LISTENER_(id, callback, ...) \
-    static ESPLooper::AutoListener _lp_listener_##id( \
-        #id, EVENT_ID(id), callback, ##__VA_ARGS__)
+    static ESPLooper::AutoListener _LP_CONCAT(_lp_listener_, __LINE__)( \
+        "listener_" id, EVENT_ID(id), callback, ##__VA_ARGS__)
 
 // ===== EVENTS =====
+
+// Events - handle null data properly
 #define LP_SEND_EVENT(id, data) \
-    ESP_LOOPER.sendEvent(EVENT_ID(id), data, sizeof(*(data)), true)
+    ESP_LOOPER.sendEvent(EVENT_ID(id), (void*)(data), \
+        (data) ? sizeof(*(data)) : 0, true)
 
 #define LP_PUSH_EVENT(id, data) \
-    ESP_LOOPER.sendEvent(EVENT_ID(id), data, sizeof(*(data)), true)
+    ESP_LOOPER.sendEvent(EVENT_ID(id), (void*)(data), \
+        (data) ? sizeof(*(data)) : 0, true)
 
 #define LP_BROADCAST EVENT_ID("")
 
