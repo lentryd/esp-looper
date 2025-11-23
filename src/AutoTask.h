@@ -41,7 +41,7 @@ public:
           stackSize(stackSize), priority(priority) {}
     
     void init() override {
-        Looper::getInstance().addTimer(name, callback, period, 
+        ESPLooper::Looper::getInstance().addTimer(name, callback, period, 
                                       autoStart, coreId, stackSize, priority);
     }
     
@@ -66,7 +66,7 @@ public:
           coreId(coreId), stackSize(stackSize), priority(priority) {}
     
     void init() override {
-        Looper::getInstance().addListener(name, eventId, callback, 
+        ESPLooper::Looper::getInstance().addListener(name, eventId, callback, 
                                          coreId, stackSize, priority);
     }
     

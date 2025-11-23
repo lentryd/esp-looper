@@ -88,7 +88,7 @@ public:
     
     void init() override {
         auto task = std::make_shared<TickerTask>(name, callback, stackSize, priority, coreId);
-        Looper::getInstance().addTicker(name, task);
+        ESPLooper::Looper::getInstance().addTicker(name, task);
     }
     
 private:
@@ -111,7 +111,7 @@ public:
     
     void init() override {
         auto task = std::make_shared<ThreadTask>(name, callback, stackSize, priority, coreId);
-        Looper::getInstance().addThread(name, task);
+        ESPLooper::Looper::getInstance().addThread(name, task);
         threadHandle = task;  // Store handle for access
     }
     
