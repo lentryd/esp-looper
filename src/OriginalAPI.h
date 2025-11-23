@@ -243,14 +243,34 @@ private:
 
 // ===== EVENTS =====
 
+// Helper function template for safe event data size calculation
+namespace _lp_event_helpers {
+    template<typename T>
+    inline size_t safe_sizeof(T* ptr) {
+        return ptr ? sizeof(*ptr) : 0;
+    }
+    
+    inline size_t safe_sizeof(void* ptr) {
+        return 0;
+    }
+    
+    inline size_t safe_sizeof(const void* ptr) {
+        return 0;
+    }
+    
+    inline size_t safe_sizeof(std::nullptr_t) {
+        return 0;
+    }
+}
+
 // Events - handle null data properly
 #define LP_SEND_EVENT(id, data) \
     ESP_LOOPER.sendEvent(EVENT_ID(id), (void*)(data), \
-        (data) ? sizeof(*(data)) : 0, true)
+        _lp_event_helpers::safe_sizeof(data), true)
 
 #define LP_PUSH_EVENT(id, data) \
     ESP_LOOPER.sendEvent(EVENT_ID(id), (void*)(data), \
-        (data) ? sizeof(*(data)) : 0, true)
+        _lp_event_helpers::safe_sizeof(data), true)
 
 #define LP_BROADCAST EVENT_ID("")
 
